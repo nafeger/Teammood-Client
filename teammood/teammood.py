@@ -31,6 +31,33 @@ class MOOD_TYPE(Enum):
         if name.upper() == "EXCELLENT":
             return cls.EXCELLENT
 
+    @classmethod
+    def get_numerical_value(cls, mood) -> float:
+        if mood == cls.BAD:
+            return 1.00
+        if mood == cls.HARD:
+            return 2.00
+        if mood == cls.AVERAGE:
+            return 3.00
+        if mood == cls.GOOD:
+            return 4.00
+        if mood == cls.EXCELLENT:
+            return 5.00
+
+    @classmethod
+    def get_mood_by_numerical_value(cls, value: float):
+        if value < 2.00:
+            return cls.BAD
+        elif value < 3.00:
+            return cls.HARD
+        elif value < 4.00:
+            return cls.AVERAGE
+        elif value < 5.00:
+            return cls.GOOD
+        elif value < 6.00:
+            return cls.EXCELLENT
+
+
 class TAG_COMBINATOR(Enum):
     UNION = "union"
     INTERSECTION = "intersection"
@@ -58,13 +85,26 @@ class Mood(object):
 class Day(object):
 
     moods = []
+    average_mood = None
 
     def __init__(self, date: datetime, today: bool):
         self.date = date
         self.today = today
 
+    def __set_avg_mood(self):
+        mood_float = 0.00
+
+        for mood in self.moods:
+            mood_float += MOOD_TYPE.get_numerical_value(mood=mood.mood)
+
+        self.average_mood = MOOD_TYPE.get_mood_by_numerical_value(
+            value=float(mood_float/float(len(self.moods)))
+        )
+
     def add_mood(self, mood: Mood):
         self.moods.append(mood)
+
+        self.__set_avg_mood()
 
 class Team(object):
 
