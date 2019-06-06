@@ -1,5 +1,5 @@
 # Teammood-Client
-Python client for the Teammood API.
+Python client for the [Teammood API](https://apidocs.teammood.com).
 
 Teammood (https://app.teammood.com) is a online app that polls teams daily to see how they are doing and to catch problems before they become big. Geared towards agile dev teams it's a easy way to see how everyone is operating.
 
