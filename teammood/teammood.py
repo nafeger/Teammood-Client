@@ -7,7 +7,9 @@ from requests.utils import requote_uri
 from urllib.parse import urlencode, quote_plus
 from enum import Enum
 
+
 class MOOD_TYPE(Enum):
+
     BAD = "BAD"
     HARD = "HARD"
     AVERAGE = "AVERAGE"
@@ -62,34 +64,69 @@ class TAG_COMBINATOR(Enum):
     UNION = "union"
     INTERSECTION = "intersection"
 
+
 class INTERVALS(Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
 
+
 class Tag(object):
 
-    def __init__(self, name: str, swithed_on: bool, is_active: bool):
+    name = None
+    switched_on = None
+    is_active = None
+
+    def __init__(self, name: str, switched_on: bool, is_active: bool):
         self.name = name
-        self.swithed_on = swithed_on
+        self.switched_on = switched_on
         self.is_active = is_active
+
 
 class Mood(object):
 
-    def __init__(self, mood: MOOD_TYPE):
+    mood = None
+    mood_id = None
+    comment = None
+
+    def __init__(self, mood: MOOD_TYPE, mood_id: str):
         self.mood = mood
+        self.mood_id = mood_id
 
     def add_comment(self, comment: str):
         self.comment = comment
 
+
+class Rate(object):
+
+    date = None
+    percentage = None
+    distinct_participants = None
+
+    def __init__(self,
+                 date: datetime,
+                 percentage: int,
+                 distinct_participants: int):
+
+        self.date = date
+        self.percentage = percentage
+        self.distinct_participants = distinct_participants
+
+
 class Day(object):
 
-    moods = []
-    average_mood = None
+    date = datetime
+    today = bool
+    moods = list()
+    average_mood = MOOD_TYPE
+    participation = Rate
 
     def __init__(self, date: datetime, today: bool):
         self.date = date
         self.today = today
+        self.moods = []
+        self.average_mood = None
+        self.participation = None
 
     def __set_avg_mood(self):
         mood_float = 0.00
@@ -106,13 +143,21 @@ class Day(object):
 
         self.__set_avg_mood()
 
+    def add_participation(self, rate: Rate):
+        self.participation = rate
+
+
+
 class Team(object):
 
-    tags = []
-    days = []
+    name = str
+    tags = list()
+    days = list()
 
     def __init__(self, team_name: str):
         self.name = team_name
+        self.tags = []
+        self.days = []
 
     def add_tag(self, tag: Tag):
         self.tags.append(tag)
@@ -120,41 +165,34 @@ class Team(object):
     def add_day(self, day: Day):
         self.days.append(day)
 
-class Rate(object):
-
-    date = None
-    percentage = 0
-    distinct_participants = 0
-
-    def __init__(self,
-                 date: datetime,
-                 percentage: int,
-                 distinct_participants: int):
-
-        self.date = date
-        self.percentage = percentage
-        self.distinct_participants = distinct_participants
-
 
 class Participation(object):
 
-    rates = []
+    rates = list()
+
+    def __init__(self):
+        self.rates = []
 
     def add_rate(self, rate: Rate):
         self.rates.append(rate)
+
+    def get_rate_by_date(self, date: datetime) -> Rate:
+        for rate in self.rates:
+            if rate.date.date() == date.date():
+                return rate
+
 
 class Teammood(object):
 
     BASE_URL = "https://app.teammood.com/api/v2"
     TEAM_ID = None
     API_KEY = None
-    VERBOSITY = 0
 
     def __init__(self,
                  team_id: str = None,
                  api_key: str = None,
                  base_url: str = None,
-                 verbosity: int = 0
+                 logging_level = logging.DEBUG
                  ) -> None:
 
         if base_url:
@@ -166,9 +204,8 @@ class Teammood(object):
         if api_key:
             self.API_KEY = api_key
 
-        self.verbosity = verbosity
         logging.basicConfig(format='%(levelname)s:%(message)s',
-                            level=logging.DEBUG)
+                            level=logging_level)
 
     @staticmethod
     def __parameters_to_querystring(params: dict) -> str:
@@ -176,7 +213,7 @@ class Teammood(object):
         parameter_string = urlencode(params, quote_via=quote_plus)
 
         if len(parameter_string) > 0:
-            return "?" + parameter_string
+            return "&" + parameter_string
         else:
             return ""
 
@@ -215,21 +252,29 @@ class Teammood(object):
 
         for tag_data in mood_response['tags']:
             tag = Tag(name=tag_data['name'],
-                      swithed_on=tag_data['swithedOn'],
+                      switched_on=tag_data['switchedOn'],
                       is_active=tag_data['isActive']
                       )
 
             team.add_tag(tag=tag)
 
         for day_data in mood_response['days']:
-            day = Day(date=datetime.datetime.fromtimestamp(int(day_data['nativeDate'])/1000),
+            moods_date = datetime.datetime.fromtimestamp(int(day_data['nativeDate'])/1000)
+
+            day = Day(date=moods_date,
                       today=day_data['today'])
 
             for value in day_data['values']:
-                mood = Mood(mood=MOOD_TYPE.get_mood(name=value['mood']))
+
+                mood = Mood(
+                    mood=MOOD_TYPE.get_mood(
+                        name=value['mood']
+                    ),
+                    mood_id=value['moodId']
+                )
 
                 if 'comment' in value:
-                    mood.add_comment(comment=value['comment'])
+                    mood.add_comment(comment=value['comment']['body'])
 
                 day.add_mood(mood=mood)
 
@@ -340,3 +385,30 @@ class Teammood(object):
         logging.debug(response)
 
         return self.__participation_response_to_classes(participation_response=response)
+
+    def get_moods_with_participation(self,
+                                     start_datetime: datetime,
+                                     end_datetime: datetime,
+                                     tags: [str] = None,
+                                     tagscombinator: TAG_COMBINATOR = None
+                                     ) -> Team:
+
+        team = self.get_all_moods_for_dates(start_datetime=start_datetime,
+                                            end_datetime=end_datetime,
+                                            tags=tags,
+                                            tagscombinator=tagscombinator)
+
+        participation = self.get_participation_for_dates(start_datetime=start_datetime,
+                                                         end_datetime=end_datetime,
+                                                         tags=tags,
+                                                         interval=INTERVALS.DAILY,
+                                                         tagscombinator=tagscombinator)
+
+        for day in team.days:
+            synced_rate = participation.get_rate_by_date(date=day.date)
+
+            if synced_rate:
+                day.add_participation(rate=synced_rate)
+
+        return team
+

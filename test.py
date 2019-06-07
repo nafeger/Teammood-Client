@@ -1,4 +1,3 @@
-import json
 import os
 import datetime
 import unittest
@@ -24,6 +23,19 @@ class Test_Functionality(unittest.TestCase):
 
         assert len(moods.days) > 0
 
+    def test_02a_moods_since(self):
+        teammood_client = Teammood(team_id=os.getenv("TEAM_ID"),
+                                   api_key=os.getenv("API_KEY")
+                                   )
+
+        moods = teammood_client.get_all_moods_since(
+            since=7,
+            tags=[''],
+            tagscombinator=TAG_COMBINATOR.INTERSECTION
+        )
+
+        assert len(moods.days) > 0
+
     def test_03_moods_by_date(self):
         teammood_client = Teammood(team_id=os.getenv("TEAM_ID"),
                                    api_key=os.getenv("API_KEY")
@@ -31,7 +43,7 @@ class Test_Functionality(unittest.TestCase):
 
         moods = teammood_client.get_all_moods_for_dates(
                     start_datetime=datetime.datetime(year=2019, month=5, day=1),
-                    end_datetime=datetime.datetime(year=2019, month=5, day=31)
+                    end_datetime=datetime.datetime(year=2019, month=5, day=27)
         )
 
         assert len(moods.days) > 0
@@ -43,7 +55,20 @@ class Test_Functionality(unittest.TestCase):
 
         participation = teammood_client.get_participation_for_dates(
             start_datetime=datetime.datetime(year=2019, month=5, day=1),
-            end_datetime=datetime.datetime(year=2019, month=5, day=27)
+            end_datetime=datetime.datetime(year=2019, month=5, day=27),
+            interval=INTERVALS.DAILY
             )
 
         assert len(participation.rates) > 0
+
+    def test_05_get_unified_mood_with_participation(self):
+        teammood_client = Teammood(team_id=os.getenv("TEAM_ID"),
+                                   api_key=os.getenv("API_KEY")
+                                   )
+
+        super_mood = teammood_client.get_moods_with_participation(
+            start_datetime=datetime.datetime(year=2019, month=5, day=1),
+            end_datetime=datetime.datetime(year=2019, month=5, day=27)
+        )
+
+        assert len(super_mood.days) > 1
