@@ -72,6 +72,14 @@ class INTERVALS(Enum):
 
 
 class Tag(object):
+    """
+    Tag Class
+
+    Attributes:
+        name (str): Name of the Tag
+        switched_on (bool): Is the Tag turned on
+        is_active (bool):  Is the Tag active
+    """
 
     name = None
     switched_on = None
@@ -84,6 +92,14 @@ class Tag(object):
 
 
 class Mood(object):
+    """
+    Mood Class
+
+    Attributes:
+        mood (MOOD_TYPE) = Tee mood
+        mood_id (str) = Unique id for mood response
+        comment (str) = User comment on mood
+    """
 
     mood = None
     mood_id = None
@@ -93,11 +109,19 @@ class Mood(object):
         self.mood = mood
         self.mood_id = mood_id
 
-    def add_comment(self, comment: str):
+    def add_comment(self, comment: str) -> None:
         self.comment = comment
 
 
 class Rate(object):
+    """
+    Rate Class
+
+    Attributes:
+        date (datetime): Date for the Rate
+        percentage (int): The % of people who responded
+        distinct_participants (int): Amount of distinct responders
+    """
 
     date = None
     percentage = None
@@ -114,21 +138,33 @@ class Rate(object):
 
 
 class Day(object):
+    """
+    Day Class
+
+    Attributes:
+        date (datetime): Datetime for the day
+        today (bool): Is it today
+        moods (list): List of Mood Classes
+        average_mood (MOOD_TYPE): Average Mood for the day
+        participation (Rate): The participation for the day
+    """
 
     date = datetime
     today = bool
     moods = list()
     average_mood = MOOD_TYPE
+    comments = list()
     participation = Rate
 
     def __init__(self, date: datetime, today: bool):
         self.date = date
         self.today = today
         self.moods = []
+        self.comments = []
         self.average_mood = None
         self.participation = None
 
-    def __set_avg_mood(self):
+    def __set_avg_mood(self) -> None:
         mood_float = 0.00
 
         for mood in self.moods:
@@ -138,17 +174,31 @@ class Day(object):
             value=float(mood_float/float(len(self.moods)))
         )
 
-    def add_mood(self, mood: Mood):
+    def __add_comment(self, comment: str):
+        self.comments.append(comment)
+
+    def add_mood(self, mood: Mood) -> None:
         self.moods.append(mood)
+
+        if mood.comment:
+            self.__add_comment(comment=mood.comment)
 
         self.__set_avg_mood()
 
-    def add_participation(self, rate: Rate):
+    def add_participation(self, rate: Rate) -> None:
         self.participation = rate
 
 
 
 class Team(object):
+    """
+    Team Class
+
+    Attributes:
+        name (str): Mame of the Team
+        tags (list): List of Tag Classes
+        days (list): List of Day Classes
+    """
 
     name = str
     tags = list()
@@ -159,30 +209,56 @@ class Team(object):
         self.tags = []
         self.days = []
 
-    def add_tag(self, tag: Tag):
+    def add_tag(self, tag: Tag) -> None:
         self.tags.append(tag)
 
-    def add_day(self, day: Day):
+    def add_day(self, day: Day) -> None:
         self.days.append(day)
 
 
 class Participation(object):
+    """
+    Participation Class
 
+    Attributes:
+        rates (list): list of Rate classes
+    """
     rates = list()
 
     def __init__(self):
         self.rates = []
 
-    def add_rate(self, rate: Rate):
+    def add_rate(self, rate: Rate) -> None:
+        """Add a rate
+
+        Args:
+            rate (Rate): The Rate to add
+        """
         self.rates.append(rate)
 
     def get_rate_by_date(self, date: datetime) -> Rate:
+        """Search for a participation rate by date
+
+        Args:
+            date (datetime): Datetime to search for
+
+        Returns:
+            Rate
+        """
         for rate in self.rates:
             if rate.date.date() == date.date():
                 return rate
 
 
 class Teammood(object):
+    """
+    Teammood Client Class
+
+    Attributes:
+        BASE_URL (str): The base url for all API calls
+        TEAM_ID (str): The Teammood Team Id
+        API_KEY (str): The Teammood API Key
+    """
 
     BASE_URL = "https://app.teammood.com/api/v2"
     TEAM_ID = None
@@ -194,6 +270,14 @@ class Teammood(object):
                  base_url: str = None,
                  logging_level = logging.DEBUG
                  ) -> None:
+        """Class Init
+
+        Args:
+            team_id (str): Teamood Team Id
+            api_key (str): Teamood API Key
+            base_url (str): (optional) Overide the base url with new one
+            logging_level (logging.level): Level you want to log to
+        """
 
         if base_url:
             self.BASE_URL = base_url
@@ -209,7 +293,14 @@ class Teammood(object):
 
     @staticmethod
     def __parameters_to_querystring(params: dict) -> str:
+        """Formats the Query Parameters
 
+        Args:
+            params (dict): A dict of items to be query parameters
+
+        Returns:
+            A formatted str of query parameters
+        """
         parameter_string = urlencode(params, quote_via=quote_plus)
 
         if len(parameter_string) > 0:
@@ -219,13 +310,32 @@ class Teammood(object):
 
     @staticmethod
     def __date_formatter(date: datetime) -> str:
+        """Unified date format for Teammood
 
+        Args:
+            date (datetime): The inpot datetime
+
+        Returns:
+            Properly formatted str
+
+        """
         return date.strftime('%d-%m-%Y')
 
     def __call_api(self,
                    route: str,
                    params: dict
                    ) -> dict:
+        """API Caller
+
+        Management of the call to the Teammood API
+
+        Args:
+            route (str): route to call
+            params (dict): additional query parameters to send
+
+        Returns:
+            JSON formattes HTTPResponse
+        """
 
         if self.TEAM_ID and self.API_KEY:
             url = requote_uri("{base}{route}{parameters}".format(
@@ -246,7 +356,17 @@ class Teammood(object):
         else:
             raise Exception("TEAM_ID and/or API_KEY not found. Please Authenticate")
 
-    def __mood_response_to_classes(self, mood_response: dict):
+    def __mood_response_to_classes(self, mood_response: dict) -> Team:
+        """Mood Response to Class
+
+        Map the Mood API response to the associated classes
+
+        Args:
+            mood_response (dict): Response dict from the Teammood API call
+
+        Returns:
+            Team Class
+        """
 
         team = Team(team_name=mood_response['teamName'])
 
@@ -282,8 +402,18 @@ class Teammood(object):
 
         return team
 
-    def __participation_response_to_classes(self, participation_response: dict):
+    def __participation_response_to_classes(self, participation_response: dict) -> Participation:
 
+        """Participation Response to Class
+
+        Map the Participation API response to the associated classes
+
+        Args:
+            participation_response (dict): Response dict from the Teammood API call
+
+        Returns:
+            Participation Class
+        """
         participation = Participation()
 
         for participation_rate in participation_response['participation_rates']:
@@ -302,6 +432,14 @@ class Teammood(object):
                            team_id: str,
                            api_key: str
                            ) -> None:
+        """Set Authentication
+
+        Add the required keys to the client
+
+        Args:
+            team_id (str): Teammood Team Id
+            api_key (str): Teammood API key
+        """
 
         self.TEAM_ID = team_id
         self.API_KEY = api_key
@@ -311,6 +449,18 @@ class Teammood(object):
                             tags: [str] = None,
                             tagscombinator: TAG_COMBINATOR = None
                             ) -> Team:
+        """Moods Since
+
+        Get the Moods for the last X number of days
+
+        Args:
+            since (int): Amout of days back to get results for
+            tags [str]: List of tags your querying
+            tagscombinator (TAG_COMBINATOR): If multiple tags are defined, this parameter describes how filtering is applied.
+
+        Returns:
+
+        """
 
         route = "/team/moods?since={since}".format(
             since=since
@@ -336,6 +486,19 @@ class Teammood(object):
                                 tags: [str] = None,
                                 tagscombinator: TAG_COMBINATOR = None
                                 ) -> Team:
+        """Moods for a date range
+
+        Get the Moods for a certain date range
+
+        Args:
+            start_datetime (datetime): Start Date/Time for query
+            end_datetime (datetime): End Date/Time for query
+            tags [str]: List of tags your querying
+            tagscombinator (TAG_COMBINATOR): If multiple tags are defined, this parameter describes how filtering is applied.
+
+        Returns:
+            Team class
+        """
 
         route = "/team/moods?start={start}&end={end}".format(
             start=self.__date_formatter(start_datetime),
@@ -357,12 +520,27 @@ class Teammood(object):
         return self.__mood_response_to_classes(mood_response=response)
 
     def get_participation_for_dates(self,
-                                start_datetime: datetime,
-                                end_datetime: datetime,
-                                tags: [str] = None,
-                                interval: INTERVALS  = None,
-                                tagscombinator: TAG_COMBINATOR = None
-                                ) -> Participation:
+                                    start_datetime: datetime,
+                                    end_datetime: datetime,
+                                    tags: [str] = None,
+                                    interval: INTERVALS = None,
+                                    tagscombinator: TAG_COMBINATOR = None
+                                    ) -> Participation:
+        """Participation for date range
+
+        Get the participation data for the date range defined
+
+        Args:
+            start_datetime (datetime): Start Date/Time for query
+            end_datetime (datetime): End Date/Time for query
+            tags [str]: List of tags your querying
+            interval (INTERVALS): The interval for aggregating the participation
+            tagscombinator (TAG_COMBINATOR): If multiple tags are defined, this parameter describes how filtering is
+                applied.
+
+        Returns:
+            Participation Class
+        """
 
         route = "/team/participation?start={start}&end={end}".format(
             start=self.__date_formatter(start_datetime),
@@ -392,6 +570,20 @@ class Teammood(object):
                                      tags: [str] = None,
                                      tagscombinator: TAG_COMBINATOR = None
                                      ) -> Team:
+        """Moods and Participation together
+
+        Gets the moods for the defined time and adds the participation for each day.
+
+        Args:
+            start_datetime (datetime): Start Date/Time for query
+            end_datetime (datetime): End Date/Time for query
+            tags [str]: List of tags your querying
+            tagscombinator (TAG_COMBINATOR): If multiple tags are defined, this parameter describes how filtering is applied.
+
+        Returns:
+            Team class with Participation for each day in Team.days
+
+        """
 
         team = self.get_all_moods_for_dates(start_datetime=start_datetime,
                                             end_datetime=end_datetime,
