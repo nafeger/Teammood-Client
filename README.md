@@ -22,6 +22,14 @@ from teammood.teammood import Teammood, INTERVALS, TAG_COMBINATOR
 teammood_client = Teammood(team_id="TEAM_ID",
                            api_key="API_KEY")
 ```
+### Moods With Participation
+Query moods with associated participation
+```python
+super_mood = teammood_client.get_moods_with_participation(
+            start_datetime=datetime.datetime(year=2019, month=5, day=1),
+            end_datetime=datetime.datetime(year=2019, month=5, day=27)
+        )
+```
 
 ### Moods
 
