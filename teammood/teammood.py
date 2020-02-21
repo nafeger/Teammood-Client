@@ -153,6 +153,7 @@ class Day(object):
     today = bool
     moods = list()
     average_mood = MOOD_TYPE
+    average_mood_raw = float
     comments = list()
     participation = Rate
 
@@ -161,6 +162,7 @@ class Day(object):
         self.today = today
         self.moods = []
         self.comments = []
+        self.average_mood_raw = 0
         self.average_mood = None
         self.participation = None
 
@@ -170,8 +172,9 @@ class Day(object):
         for mood in self.moods:
             mood_float += MOOD_TYPE.get_numerical_value(mood=mood.mood)
 
+        self.average_mood_raw = float(mood_float/float(len(self.moods)))
         self.average_mood = MOOD_TYPE.get_mood_by_numerical_value(
-            value=float(mood_float/float(len(self.moods)))
+            value=self.average_mood_raw
         )
 
     def __add_comment(self, comment: str):
